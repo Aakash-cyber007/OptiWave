@@ -1,7 +1,7 @@
 import numpy as np
-import cv2
-from my_library import SVD
-from time import perf_counter
+from .block_svd import Block_SVD
+from ..utils.image_loader import load_image, save_image, plot_image
+from ..utils.metrics import time_function, compute_snr
 
 
 def extract_patches(image, patch_size, stride):
@@ -55,6 +55,9 @@ def omp(D, Y, sparsity):
     
     return X
 
+@time_function("K-SVD time taken")
+
+
 def ksvd(IMAGE : str, patch_size = 8, stride = 8, sparsity = 5, max_iter=20):
     """
     K-SVD Algorithm for Dictionary Learning and Image Denoising.
@@ -81,7 +84,7 @@ def ksvd(IMAGE : str, patch_size = 8, stride = 8, sparsity = 5, max_iter=20):
                 continue
             E_j = Y[:, index_j] - D @ X[:, index_j] + np.outer(D[:, j], X[j, index_j])
             #U, S, Vt = np.linalg.svd(E_j, full_matrices=False)
-            U, S, Vt = svds(E_j, k=1, which='LM')
+            U, S, Vt = Block_SVD(E_j, 1)
             D[:,j] = U[: ,0]
             X[j, index_j] = S[0]*Vt[0 ,:]
     
@@ -100,3 +103,13 @@ def ksvd(IMAGE : str, patch_size = 8, stride = 8, sparsity = 5, max_iter=20):
 
     reconstructed /= (weight + 1e-8)  # Avoid division by zero
     return np.clip(reconstructed, 0, 255).astype(np.uint8)
+
+def ksvd_image(orginal_image,path,save = True,patch_size=8,stride=8,sparsity=5,max_iter=20):
+    org = load_image(orginal_image)
+    im = ksvd(orginal_image,patch_size,stride,sparsity,max_iter)
+    snr_value =compute_snr(org,im)
+    print(f"SNR: {snr_value:.2f} dB")
+    if save:
+        save_image(im,path)
+    plot_image(im)
+	
